@@ -25,22 +25,18 @@ public class DefaultHandler implements Handler {
 
         try {
             Response response = responseCompletableFuture.get(15, TimeUnit.SECONDS);
-            var applicationStatusResponse = switch (response) {
+            return switch (response) {
                 case Response.Success success ->
                         new ApplicationStatusResponse.Success(success.applicationId(), success.applicationStatus());
                 case Response.RetryAfter retryAfter -> {
                     retriesCount.incrementAndGet();
+                    // todo обрабатывать как-то delay
+//                    CompletableFuture.delayedExecutor()
                 }
                 case Response.Failure failure -> new ApplicationStatusResponse.Failure(null, retriesCount.get());
             };
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
-        } catch (TimeoutException e) {
-            e.printStackTrace();
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            return new ApplicationStatusResponse.Failure(null, retriesCount.get());
         }
-
-        // todo обработка ответов сервисов и преобразование полученных данных в ответ нового сервиса
     }
 }
