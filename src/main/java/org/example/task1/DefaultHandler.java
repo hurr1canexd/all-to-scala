@@ -28,14 +28,14 @@ public class DefaultHandler implements Handler {
             return switch (response) {
                 case Response.Success success ->
                         new ApplicationStatusResponse.Success(success.applicationId(), success.applicationStatus());
-                case Response.RetryAfter retryAfter -> {
-                    retriesCount.incrementAndGet();
-                    // todo обрабатывать как-то delay
-//                    CompletableFuture.delayedExecutor()
-                }
+                case Response.RetryAfter retryAfter ->
+                        new ApplicationStatusResponse.Failure(null, retriesCount.incrementAndGet());
+                // todo обрабатывать как-то delay
+                //  CompletableFuture.delayedExecutor()?
                 case Response.Failure failure -> new ApplicationStatusResponse.Failure(null, retriesCount.get());
             };
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            // log
             return new ApplicationStatusResponse.Failure(null, retriesCount.get());
         }
     }

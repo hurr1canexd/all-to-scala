@@ -1,35 +1,40 @@
 package org.example.task2;
 
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayDeque;
-import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 
 public class DefaultHandler implements Handler {
 
+    private static final int MILLIS_TIMEOUT = 100;
+
     private final Client client;
-    private final Queue<Event> eventQueue;
+//    private final BlockingQueue<Event> eventQueue;
 
     public DefaultHandler(Client client) {
         this.client = client;
-        this.eventQueue = new ArrayDeque<>();
+//        this.eventQueue = new LinkedBlockingQueue<>();
     }
 
     @Override
     public Duration timeout() {
-        return Duration.of(100, ChronoUnit.MILLIS);
+        return Duration.ofMillis(MILLIS_TIMEOUT);
     }
 
     @Override
     public void performOperation() {
-        Event data = client.readData(); // todo высокая пропускная способность - нужно хранилище?
-        for (Address address : data.recipients()) {
-            Result result = client.sendData(address, data.payload());
-            if (result == Result.ACCEPTED) {
-                // отправка адресату считается завершённой
-            } else if (result == Result.REJECTED) {
-                // отклонены, операцию отправки следует повторить через timeout() => delayed queue?
-            }
+        // todo переписать на LinkedBlockingQueue?
+        while (true) {
+            Event data = client.readData();
+            CompletableFuture[] futures = data.recipients().stream()
+                    .map(recipient -> sendDataAsync(recipient, data.payload()))
+                    .toArray(CompletableFuture<?>[]::new);
+
+            CompletableFuture.allOf(futures)
+                    .join();
         }
+    }
+
+    private CompletableFuture<Result> sendDataAsync(Address address, Payload payload) {
+        return CompletableFuture.supplyAsync(() -> client.sendData(address, payload));
     }
 }
